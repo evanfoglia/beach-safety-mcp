@@ -10,11 +10,11 @@ Get comprehensive beach and surf conditions for any beach in the world — just 
 - 🌫️ **Swell** — swell height, period, direction
 - 💨 **Wind** — speed and direction
 - 🌡️ **Temperature** — air and water
-- ☀️ **UV Index** — sun protection guidance
+- ☀️ **UV Index** — sun protection guidance *(requires free OpenUV API key)*
 - ⚠️ **Rip Current Risk** — Low / Moderate / High
 - 🛡️ **Safety Score** — 1-10 with recommendations
 
-## Data Sources (all free)
+## Data Sources (all free — no API keys)
 
 | Source | Data |
 |--------|------|
@@ -23,9 +23,7 @@ Get comprehensive beach and surf conditions for any beach in the world — just 
 | Open-Meteo Weather | Air temp, wind, precipitation |
 | NOAA NWS | Rip current risk, surf zone forecast |
 
-No API keys required for any of the above.
-
-**Optional:** Add an OpenUV API key (free at openuv.io) for UV index — 50 requests/day free.
+**Optional:** Add a free OpenUV API key (openuv.io) for UV index — 50 requests/day free.
 
 ## Installation
 
