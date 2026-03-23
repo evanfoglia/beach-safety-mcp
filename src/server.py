@@ -432,7 +432,7 @@ async def get_uv_index(lat: float, lon: float, api_key: str) -> dict:
                 data = resp.json().get("result", {})
                 return {
                     "uv_index": data.get("uv"),
-                    "ozone": data.get("ozone", {}).get("value"),
+                    "ozone": data.get("ozone"),
                     "uv_max": data.get("uv_max"),
                     "safe_exposure_time": data.get("safe_exposure_time", {}).get("st10"),
                 }
