@@ -51,14 +51,25 @@ mcporter config add beach-safety \
   --cwd "path/to/beach-safety-mcp/config"
 ```
 
+### Set OpenUV API key (for UV index)
+
+UV data requires a free API key from [openuv.io](https://openuv.io) (50 requests/day free):
+
+```bash
+export OPENUV_API_KEY="your-free-key"
+```
+
+Add this to your shell profile (`~/.zshrc`) to have it available always.
+
+### Add to mcporter manually
+
 Or manually add to `~/.openclaw/workspace/config/mcporter.json`:
 
 ```json
 {
   "beach-safety": {
     "command": "python3",
-    "args": ["/full/path/to/beach-safety-mcp/src/server.py"],
-    "cwd": "/full/path/to/beach-safety-mcp/config"
+    "args": ["/full/path/to/beach-safety-mcp/src/server.py"]
   }
 }
 ```
@@ -117,6 +128,9 @@ mcporter call beach-safety.get_surf_forecast lat=21.27 lon=-157.82
 🌡️ TEMPERATURE
    Air: 68°F | Water: 75°F
 
+☀️ UV INDEX
+   UV: 6 — Moderate — Protection needed 10am-4pm
+
 📋 RECOMMENDATIONS:
    ⚠️ Swim near a lifeguard. Be aware of rip currents.
 ```
@@ -144,5 +158,7 @@ mcporter call beach-safety.get_surf_forecast lat=21.27 lon=-157.82
 beach-safety-mcp/
 ├── src/
 │   └── server.py          # MCP server (Python, stdio)
-└── beach_lookup.py        # CLI tool
+├── beach_lookup.py        # CLI tool
+├── LICENSE                # MIT License
+└── README.md
 ```
