@@ -122,7 +122,7 @@ async def geocode_beach(query: str) -> tuple[str, float, float]:
         queries_to_try.append(query + " Beach")
 
     for q in queries_to_try:
-        # Try Nominatim
+        # Try Nominatim — take the top result (most famous match)
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
@@ -130,64 +130,38 @@ async def geocode_beach(query: str) -> tuple[str, float, float]:
                     params={
                         "q": q,
                         "format": "json",
-                        "limit": 5,
+                        "limit": 3,
                         "addressdetails": 1,
                     },
                     headers={"User-Agent": "BeachSafetyMCP/1.0"}
                 )
                 if resp.status_code == 200:
                     results = resp.json()
-                    if not results:
-                        continue
-                    # Prefer results tagged as actual beaches (type=beach)
-                    beach_results = [r for r in results if r.get("type") == "beach"]
-                    results_to_check = beach_results if beach_results else results
-                    for r in results_to_check[:2]:
+                    if results:
+                        r = results[0]
                         return r.get("display_name", query), float(r["lat"]), float(r["lon"])
-                    # Fallback to top result even if not a beach
-                    r = results[0]
-                    return r.get("display_name", query), float(r["lat"]), float(r["lon"])
         except Exception:
             pass
 
-        # Try Photons (Komoot) — often better for tourist beach names
+        # Try Photons (Komoot) — fallback for tourist beach names
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
                     "https://photon.komoot.io/api/",
-                    params={"q": q, "limit": 5},
+                    params={"q": q, "limit": 3},
                 )
                 if resp.status_code == 200:
                     data = resp.json()
                     features = data.get("features", [])
-                    if not features:
-                        continue
-                    # Prefer beach-tagged results
-                    beach_features = [
-                        f for f in features
-                        if f.get("properties", {}).get("osm_key") == "natural"
-                        and f.get("properties", {}).get("osm_value") == "beach"
-                    ]
-                    features_to_check = beach_features if beach_features else features
-                    for f in features_to_check[:2]:
+                    if features:
+                        f = features[0]
                         props = f.get("properties", {})
-                        geom = f.get("geometry", {})
-                        coords = geom.get("coordinates", [])
+                        coords = f.get("geometry", {}).get("coordinates", [])
                         if len(coords) >= 2:
-                            lat, lon = coords[1], coords[0]
                             display = props.get("name", query)
                             for k in ["city", "state", "country"]:
                                 if props.get(k): display += f", {props[k]}"
-                            return display, lat, lon
-                    # Fallback to top result
-                    f = features[0]
-                    props = f.get("properties", {})
-                    coords = f.get("geometry", {}).get("coordinates", [])
-                    if len(coords) >= 2:
-                        display = props.get("name", query)
-                        for k in ["city", "state", "country"]:
-                            if props.get(k): display += f", {props[k]}"
-                        return display, coords[1], coords[0]
+                            return display, coords[1], coords[0]
         except Exception:
             pass
 
@@ -221,9 +195,7 @@ def calc_safety_score(conditions: dict) -> tuple[int, str, list]:
         score -= 2
         recommendations.append(f"⚠️ Strong winds ({wind:.0f} mph) — dangerous conditions")
 
-    uv = safe_float(conditions.get("uv_index"))
-    if uv >= 6:
-        recommendations.append(f"☀️ UV {uv:.0f} ({get_uv_risk(uv)}) — wear sunscreen and a hat")
+    # UV is shown in the main report, don't duplicate in recommendations
 
     water_temp = safe_float(conditions.get("water_temperature_f"))
     if water_temp:
