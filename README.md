@@ -140,6 +140,5 @@ mcporter call beach-safety.get_surf_forecast lat=21.27 lon=-157.82
 beach-safety-mcp/
 ├── src/
 │   └── server.py          # MCP server (Python, stdio)
-├── beach_lookup.py        # CLI tool
-└── beaches.json           # Local beach shortcuts (optional)
+└── beach_lookup.py        # CLI tool
 ```
