@@ -25,6 +25,12 @@ Get comprehensive beach and surf conditions for any beach in the world — just 
 
 **Optional:** Add a free OpenUV API key (openuv.io) for UV index — 50 requests/day free.
 
+```bash
+export OPENUV_API_KEY="your-free-key-from-openuv.io"
+```
+
+Set it once in your shell profile and UV data will be included automatically. Or pass it directly to the tool.
+
 ## Installation
 
 ### 1. Clone / copy the project

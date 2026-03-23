@@ -3,11 +3,18 @@ Beach Safety MCP Server
 Provides comprehensive beach safety conditions via NOAA, Open-Meteo, and other free APIs.
 """
 
+import os
+
 import httpx
 import json
 from datetime import datetime, timezone
 from typing import Optional
 from dataclasses import dataclass, asdict
+
+
+def get_openuv_key(provided_key: str = "") -> str:
+    """Get OpenUV API key from argument or environment variable."""
+    return provided_key or os.environ.get("OPENUV_API_KEY", "")
 
 # ============================================================================
 # DATA SOURCES (all free, no API keys required unless noted)
@@ -776,7 +783,7 @@ def get_beach_report(beach_name: str, latitude: float = None, longitude: float =
             return f"Could not find beach: {beach_name}. Try a more specific name (e.g., 'Waikiki Beach, Oahu, HI')."
         if display_name != beach_name:
             beach_name = display_name
-    report = asyncio.run(get_comprehensive_report(beach_name, lat, lon, openuv_api_key))
+    report = asyncio.run(get_comprehensive_report(beach_name, lat, lon, get_openuv_key(openuv_api_key)))
     return format_report_text(report)
 
 
@@ -795,7 +802,7 @@ def get_beach_json(beach_name: str, latitude: float = None, longitude: float = N
             return {"error": f"Could not find beach: {beach_name}. Try a more specific name."}
         if display_name != beach_name:
             beach_name = display_name
-    return asyncio.run(get_comprehensive_report(beach_name, lat, lon, openuv_api_key))
+    return asyncio.run(get_comprehensive_report(beach_name, lat, lon, get_openuv_key(openuv_api_key)))
 
 
 def get_surf_forecast(lat: float, lon: float) -> dict:

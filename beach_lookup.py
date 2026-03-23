@@ -35,7 +35,9 @@ async def main():
     beach_name = display_name
     print(f"Found: {display_name}")
 
-    report = await get_comprehensive_report(beach_name, lat, lon, "")
+    import os
+    openuv_key = os.environ.get("OPENUV_API_KEY", "")
+    report = await get_comprehensive_report(beach_name, lat, lon, openuv_key)
     print(format_report_text(report))
 
 if __name__ == "__main__":
