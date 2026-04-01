@@ -10,7 +10,7 @@ Get comprehensive beach and surf conditions for any beach in the world — just 
 - 🌫️ **Swell** — swell height, period, direction
 - 💨 **Wind** — speed and direction
 - 🌡️ **Temperature** — air and water
-- ☀️ **UV Index** — sun protection guidance *(requires free OpenUV API key)*
+- ☀️ **UV Index** — sun protection guidance *(free, no API key)*
 - ⚠️ **Rip Current Risk** — Low / Moderate / High
 - 🛡️ **Safety Score** — 1-10 with recommendations
 
@@ -20,16 +20,10 @@ Get comprehensive beach and surf conditions for any beach in the world — just 
 |--------|------|
 | OpenStreetMap / Photons | Beach name → coordinates |
 | Open-Meteo Marine | Wave height, swell, ocean currents |
-| Open-Meteo Weather | Air temp, wind, precipitation |
+| Open-Meteo Weather | Air temp, wind, precipitation, UV index |
 | NOAA NWS | Rip current risk, surf zone forecast |
 
-**Optional:** Add a free OpenUV API key (openuv.io) for UV index — 50 requests/day free.
-
-```bash
-export OPENUV_API_KEY="your-free-key-from-openuv.io"
-```
-
-Set it once in your shell profile and UV data will be included automatically. Or pass it directly to the tool.
+UV index data comes from Open-Meteo at no cost — no API key needed.
 
 ## Installation
 
@@ -50,16 +44,6 @@ mcporter config add beach-safety \
   --args "path/to/beach-safety-mcp/src/server.py" \
   --cwd "path/to/beach-safety-mcp/config"
 ```
-
-### Set OpenUV API key (for UV index)
-
-UV data requires a free API key from [openuv.io](https://openuv.io) (50 requests/day free):
-
-```bash
-export OPENUV_API_KEY="your-free-key"
-```
-
-Add this to your shell profile (`~/.zshrc`) to have it available always.
 
 ### Add to mcporter manually
 

@@ -12,9 +12,7 @@ from typing import Optional
 from dataclasses import dataclass, asdict
 
 
-def get_openuv_key(provided_key: str = "") -> str:
-    """Get OpenUV API key from argument or environment variable."""
-    return provided_key or os.environ.get("OPENUV_API_KEY", "")
+
 
 # ============================================================================
 # DATA SOURCES (all free, no API keys required unless noted)
@@ -23,7 +21,7 @@ def get_openuv_key(provided_key: str = "") -> str:
 # 2. Open-Meteo Marine: open-meteo.com — wave height, swell, currents (FREE, no key)
 # 3. Open-Meteo Weather: open-meteo.com — air temp, wind, precipitation
 # 4. NOAA NDBC Buoys: ndbc.noaa.gov — real-time buoy observations
-# 5. OpenUV API: api.openuv.io — UV index (50 req/day free, needs key)
+# 5. Open-Meteo Weather: open-meteo.com — UV index (FREE, no key)
 # 6. Sunrise-Sunset API: sunrise-sunset.org — sunrise/sunset times
 # 7. NOAA CO-OPS: tidesandcurrents.noaa.gov — water level, tides
 
@@ -388,29 +386,24 @@ async def get_buoy_nearest(lat: float, lon: float, max_distance_km: float = 50) 
     return {}
 
 
-async def get_uv_index(lat: float, lon: float, api_key: str) -> dict:
-    """Get UV index from OpenUV API. Requires free API key."""
-    if not api_key or api_key == "demo":
-        return {"uv_index": None, "uv_message": "OpenUV API key not configured"}
-
+async def get_uv_index(lat: float, lon: float, api_key: str = "") -> dict:
+    """Get UV index from Open-Meteo (free, no API key needed)."""
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
-                "https://api.openuv.io/api/v1/uv",
-                params={"lat": lat, "lng": lon},
-                headers={"x-access-token": api_key}
+                "https://api.open-meteo.com/v1/forecast",
+                params={"latitude": lat, "longitude": lon, "current": "uv_index", "forecast_days": 1}
             )
             if resp.status_code == 200:
-                data = resp.json().get("result", {})
-                return {
-                    "uv_index": data.get("uv"),
-                    "ozone": data.get("ozone"),
-                    "uv_max": data.get("uv_max"),
-                    "safe_exposure_time": data.get("safe_exposure_time", {}).get("st10"),
-                }
+                data = resp.json()
+                uv = data.get("current", {}).get("uv_index")
+                # UV is 0 or missing at night
+                if uv is None or uv == "":
+                    return {"uv_index": 0, "uv_message": "UV data unavailable (nighttime)"}
+                return {"uv_index": float(uv), "uv_message": None}
     except Exception:
         pass
-    return {"uv_index": None}
+    return {"uv_index": None, "uv_message": "UV data unavailable"}
 
 
 async def get_tide_data(lat: float, lon: float) -> dict:
@@ -495,7 +488,6 @@ async def get_comprehensive_report(
     beach_name: str,
     lat: float,
     lon: float,
-    openuv_key: str = "demo"
 ) -> dict:
     """Gather all beach safety data from multiple sources."""
     # Fetch all sources in parallel
@@ -505,7 +497,7 @@ async def get_comprehensive_report(
             get_noaa_beach_forecast(lat, lon),
             get_open_meteo_marine(lat, lon),
             get_open_meteo_weather(lat, lon),
-            get_uv_index(lat, lon, openuv_key),
+            get_uv_index(lat, lon),
             get_noaa_surf_zone_alerts(lat, lon),
         )
 
@@ -732,7 +724,7 @@ def format_report_text(report: dict) -> str:
 # MCP TOOLS (these are what AI agents will call)
 # ============================================================================
 
-def get_beach_report(beach_name: str, latitude: float = None, longitude: float = None, openuv_api_key: str = "") -> str:
+def get_beach_report(beach_name: str, latitude: float = None, longitude: float = None) -> str:
     """
     Get comprehensive beach safety conditions for any beach location.
 
@@ -741,7 +733,6 @@ def get_beach_report(beach_name: str, latitude: float = None, longitude: float =
                     Can be just a name — geocoding is automatic.
         latitude: Decimal degrees (e.g., 33.9850). Optional — resolved from name if omitted.
         longitude: Decimal degrees (e.g., -118.4695). Optional — resolved from name if omitted.
-        openuv_api_key: Optional OpenUV API key for UV data. Free at openuv.io (50 req/day)
 
     Returns:
         Comprehensive beach safety report with waves, swell, wind, temperature, safety score
@@ -755,11 +746,11 @@ def get_beach_report(beach_name: str, latitude: float = None, longitude: float =
             return f"Could not find beach: {beach_name}. Try a more specific name (e.g., 'Waikiki Beach, Oahu, HI')."
         if display_name != beach_name:
             beach_name = display_name
-    report = asyncio.run(get_comprehensive_report(beach_name, lat, lon, get_openuv_key(openuv_api_key)))
+    report = asyncio.run(get_comprehensive_report(beach_name, lat, lon))
     return format_report_text(report)
 
 
-def get_beach_json(beach_name: str, latitude: float = None, longitude: float = None, openuv_api_key: str = "") -> dict:
+def get_beach_json(beach_name: str, latitude: float = None, longitude: float = None) -> dict:
     """
     Get beach conditions as structured JSON for programmatic use.
 
@@ -774,7 +765,7 @@ def get_beach_json(beach_name: str, latitude: float = None, longitude: float = N
             return {"error": f"Could not find beach: {beach_name}. Try a more specific name."}
         if display_name != beach_name:
             beach_name = display_name
-    return asyncio.run(get_comprehensive_report(beach_name, lat, lon, get_openuv_key(openuv_api_key)))
+    return asyncio.run(get_comprehensive_report(beach_name, lat, lon))
 
 
 def get_surf_forecast(lat: float, lon: float) -> dict:
@@ -804,26 +795,22 @@ def get_surf_forecast(lat: float, lon: float) -> dict:
     }
 
 
-def get_uv_forecast(lat: float, lon: float, openuv_api_key: str) -> dict:
+def get_uv_forecast(lat: float, lon: float) -> dict:
     """
     Get UV index forecast for sun protection planning.
 
     Args:
         lat: Latitude
         lon: Longitude
-        openuv_api_key: OpenUV API key (free at openuv.io, 50 req/day)
 
     Returns:
-        Dict with uv_index, uv_risk, safe_exposure_minutes
+        Dict with uv_index and uv_risk
     """
     import asyncio
-    uv_data = asyncio.run(get_uv_index(lat, lon, openuv_api_key))
+    uv_data = asyncio.run(get_uv_index(lat, lon))
     return {
         "uv_index": uv_data.get("uv_index"),
         "uv_risk": get_uv_risk(uv_data.get("uv_index")),
-        "ozone_du": uv_data.get("ozone"),
-        "uv_max": uv_data.get("uv_max"),
-        "safe_exposure_minutes": uv_data.get("safe_exposure_time"),
         "recommendation": _uv_recommendation(uv_data.get("uv_index")),
     }
 
@@ -884,8 +871,7 @@ if __name__ == "__main__":
                             "properties": {
                                 "beach_name": {"type": "string", "description": "Name of the beach (e.g., 'Waikiki', 'Bondi Beach, Sydney', 'Cocoa Beach, FL')"},
                                 "latitude": {"type": "number", "description": "Latitude (optional — resolved from name if omitted)"},
-                                "longitude": {"type": "number", "description": "Longitude (optional — resolved from name if omitted)"},
-                                "openuv_api_key": {"type": "string", "description": "Optional OpenUV API key for UV data"}
+                                "longitude": {"type": "number", "description": "Longitude (optional — resolved from name if omitted)"}
                             },
                             "required": ["beach_name"]
                         }
@@ -898,8 +884,7 @@ if __name__ == "__main__":
                             "properties": {
                                 "beach_name": {"type": "string", "description": "Name of the beach (e.g., 'Waikiki', 'Bondi Beach')"},
                                 "latitude": {"type": "number", "description": "Latitude (optional)"},
-                                "longitude": {"type": "number", "description": "Longitude (optional)"},
-                                "openuv_api_key": {"type": "string", "description": "Optional OpenUV API key for UV data"}
+                                "longitude": {"type": "number", "description": "Longitude (optional)"}
                             },
                             "required": ["beach_name"]
                         }
@@ -923,10 +908,9 @@ if __name__ == "__main__":
                             "type": "object",
                             "properties": {
                                 "lat": {"type": "number"},
-                                "lon": {"type": "number"},
-                                "openuv_api_key": {"type": "string"}
+                                "lon": {"type": "number"}
                             },
-                            "required": ["lat", "lon", "openuv_api_key"]
+                            "required": ["lat", "lon"]
                         }
                     }
                 ]
