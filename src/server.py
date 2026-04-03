@@ -38,6 +38,8 @@ class BeachConditions:
     surf_height_ft: str
     water_quality: str
     uv_index: Optional[float]
+    uv_max: Optional[float]
+    uv_message: Optional[str]
     uv_risk: str
     air_temperature_f: Optional[float]
     water_temperature_f: Optional[float]
@@ -348,7 +350,8 @@ async def get_open_meteo_weather(lat: float, lon: float) -> dict:
                 "current": ["temperature_2m", "relative_humidity_2m", "precipitation", "weather_code",
                             "wind_speed_10m", "wind_direction_10m"],
                 "daily": ["sunrise", "sunset"],
-                "timezone": "auto"
+                "timezone": "auto",
+                "wind_speed_unit": "mph",
             }
             resp = await client.get(url, params=params)
             if resp.status_code != 200:
@@ -361,7 +364,7 @@ async def get_open_meteo_weather(lat: float, lon: float) -> dict:
             sunrise = daily.get("sunrise", [None])[0] if daily.get("sunrise") else None
             sunset = daily.get("sunset", [None])[0] if daily.get("sunset") else None
 
-            wind_mps = current.get("wind_speed_10m", 0) or 0
+            wind_mph = current.get("wind_speed_10m", 0) or 0
             wind_deg = current.get("wind_direction_10m")
 
             return {
@@ -369,7 +372,7 @@ async def get_open_meteo_weather(lat: float, lon: float) -> dict:
                 "humidity": current.get("relative_humidity_2m"),
                 "precipitation_mm": current.get("precipitation"),
                 "weather_code": current.get("weather_code"),
-                "wind_speed_mps": wind_mps,
+                "wind_speed_10m": wind_mph,
                 "wind_direction_deg": wind_deg,
                 "sunrise": sunrise,
                 "sunset": sunset,
@@ -387,23 +390,35 @@ async def get_buoy_nearest(lat: float, lon: float, max_distance_km: float = 50) 
 
 
 async def get_uv_index(lat: float, lon: float, api_key: str = "") -> dict:
-    """Get UV index from Open-Meteo (free, no API key needed)."""
+    """Get UV index from Open-Meteo (free, no API key needed). Returns daily max UV during daytime, current at night."""
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
                 "https://api.open-meteo.com/v1/forecast",
-                params={"latitude": lat, "longitude": lon, "current": "uv_index", "forecast_days": 1}
+                params={
+                    "latitude": lat, "longitude": lon,
+                    "current": "uv_index",
+                    "daily": "uv_index_max",
+                    "forecast_days": 1,
+                    "timezone": "auto"
+                }
             )
             if resp.status_code == 200:
                 data = resp.json()
-                uv = data.get("current", {}).get("uv_index")
-                # UV is 0 or missing at night
-                if uv is None or uv == "":
-                    return {"uv_index": 0, "uv_message": "UV data unavailable (nighttime)"}
-                return {"uv_index": float(uv), "uv_message": None}
+                current_uv = data.get("current", {}).get("uv_index")
+                daily = data.get("daily", {})
+                uv_max_list = daily.get("uv_index_max", [])
+                uv_max = uv_max_list[0] if uv_max_list else None
+                # Use current UV during day, fall back to daily max
+                uv = float(current_uv) if current_uv is not None else None
+                if uv is not None and uv > 0:
+                    return {"uv_index": round(uv, 1), "uv_max": round(float(uv_max), 1) if uv_max else None}
+                if uv_max is not None:
+                    return {"uv_index": 0, "uv_max": round(float(uv_max), 1), "uv_message": "night"}
+                return {"uv_index": None, "uv_max": None, "uv_message": "UV data unavailable"}
     except Exception:
         pass
-    return {"uv_index": None, "uv_message": "UV data unavailable"}
+    return {"uv_index": None, "uv_message": "UV data unavailable", "uv_max": None}
 
 
 async def get_tide_data(lat: float, lon: float) -> dict:
@@ -511,7 +526,7 @@ async def get_comprehensive_report(
         # Use wave-based heuristic when NOAA doesn't have official data
         wave_h = marine.get("wave_height_m") or noaa.get("wave_height_m")
         swell_p = marine.get("swell_period_sec") or noaa.get("dominant_wave_period")
-        wind_s = (weather.get("wind_speed_mps") or 0) * 2.237
+        wind_s = weather.get("wind_speed_10m") or 0
         rip_risk = estimate_rip_risk_from_waves(wave_h, swell_p, wind_s, weather.get("wind_direction_deg"))
 
     # Merge data
@@ -523,7 +538,9 @@ async def get_comprehensive_report(
 
         # UV
         "uv_index": uv.get("uv_index"),
-        "uv_risk": get_uv_risk(uv.get("uv_index")),
+        "uv_max": uv.get("uv_max"),
+        "uv_message": uv.get("uv_message"),
+        "uv_risk": get_uv_risk(uv.get("uv_max") or uv.get("uv_index")),
 
         # Waves
         "wave_height_m": marine.get("wave_height_m") or noaa.get("wave_height_m"),
@@ -542,7 +559,7 @@ async def get_comprehensive_report(
         "wind_wave_direction_deg": marine.get("wind_wave_direction_deg"),
 
         # Wind
-        "wind_speed_mph": round((weather.get("wind_speed_mps") or 0) * 2.237, 1),
+        "wind_speed_mph": round(weather.get("wind_speed_10m") or 0, 1),
         "wind_direction_deg": weather.get("wind_direction_deg"),
         "wind_direction_cardinal": compass_deg_to_cardinal(
             weather.get("wind_direction_deg") or 0),
@@ -590,6 +607,8 @@ async def get_comprehensive_report(
         "safety_summary": summary,
         "recommendations": recommendations,
         "uv_index": conditions["uv_index"],
+        "uv_max": conditions.get("uv_max"),
+        "uv_message": conditions.get("uv_message"),
         "uv_risk": conditions["uv_risk"],
 
         # Temperature
@@ -706,8 +725,14 @@ def format_report_text(report: dict) -> str:
         f"   Water: {water_tmp}°F" if water_tmp and water_tmp != "N/A" else "   Water: N/A",
     ])
 
-    if uv and uv != "N/A":
-        lines.append(f"☀️ UV INDEX: {uv} ({report['uv_risk']}) — sunscreen recommended")
+    uv_idx = report['uv_index']
+    uv_max = report.get('uv_max')
+    is_night = report.get('uv_message') == 'night'
+    if uv_max is not None:
+        if is_night:
+            lines.append(f"☀️ UV INDEX: current=0 (daily max={uv_max}) ({report["uv_risk"]}) — sunscreen recommended")
+        else:
+            lines.append(f"☀️ UV INDEX: current={uv_idx} (daily max={uv_max}) ({report["uv_risk"]}) — sunscreen recommended")
 
     if report['weather_forecast']:
         lines.append(f"🌤️  {report['weather_forecast']}")
@@ -810,8 +835,9 @@ def get_uv_forecast(lat: float, lon: float) -> dict:
     uv_data = asyncio.run(get_uv_index(lat, lon))
     return {
         "uv_index": uv_data.get("uv_index"),
-        "uv_risk": get_uv_risk(uv_data.get("uv_index")),
-        "recommendation": _uv_recommendation(uv_data.get("uv_index")),
+        "uv_max": uv_data.get("uv_max"),
+        "uv_risk": get_uv_risk(uv_data.get("uv_max") or uv_data.get("uv_index")),
+        "recommendation": _uv_recommendation(uv_data.get("uv_max") or uv_data.get("uv_index")),
     }
 
 

@@ -10,7 +10,7 @@ Get comprehensive beach and surf conditions for any beach in the world — just 
 - 🌫️ **Swell** — swell height, period, direction
 - 💨 **Wind** — speed and direction
 - 🌡️ **Temperature** — air and water
-- ☀️ **UV Index** — sun protection guidance *(free, no API key)*
+- ☀️ **UV Index** — current UV + daily max, day/night aware *(free, no API key)*
 - ⚠️ **Rip Current Risk** — Low / Moderate / High
 - 🛡️ **Safety Score** — 1-10 with recommendations
 
@@ -112,8 +112,8 @@ mcporter call beach-safety.get_surf_forecast lat=21.27 lon=-157.82
 🌡️ TEMPERATURE
    Air: 68°F | Water: 75°F
 
-☀️ UV INDEX
-   UV: 6 — Moderate — Protection needed 10am-4pm
+☀️ UV INDEX: current=6 (daily max=9) (Very High) — sunscreen recommended
+   *(at night shows current=0 with daily max, UV risk based on max)*
 
 📋 RECOMMENDATIONS:
    ⚠️ Swim near a lifeguard. Be aware of rip currents.
