@@ -912,7 +912,7 @@ if __name__ == "__main__":
                         "capabilities": {"tools": {}},
                         "serverInfo": {
                             "name": "beach-safety-mcp",
-                            "version": "1.1.1"
+                            "version": "1.1.3"
                         }
                     }
                 }))
