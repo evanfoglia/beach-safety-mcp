@@ -4,6 +4,8 @@ Get comprehensive beach and surf conditions for any beach in the world — just 
 
 > "How's the surf at Waikiki?" → instant full report
 
+⭐ If you find this useful, please star the repo — it helps others discover it.
+
 ## What You Get
 
 - 🌊 **Waves** — height, period, direction
