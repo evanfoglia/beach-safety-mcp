@@ -912,7 +912,7 @@ if __name__ == "__main__":
                         "capabilities": {"tools": {}},
                         "serverInfo": {
                             "name": "beach-safety-mcp",
-                            "version": "1.1.3"
+                            "version": "1.1.4"
                         }
                     }
                 }))
@@ -956,7 +956,10 @@ if __name__ == "__main__":
                                 "latitude": {"type": "number", "description": "Latitude in decimal degrees (optional if beach_name is given)"},
                                 "longitude": {"type": "number", "description": "Longitude in decimal degrees (optional if beach_name is given)"}
                             },
-                            "required": []
+                            "anyOf": [
+                                {"required": ["beach_name"]},
+                                {"required": ["latitude", "longitude"]}
+                            ]
                         }
                     },
                     {
@@ -969,7 +972,10 @@ if __name__ == "__main__":
                                 "latitude": {"type": "number", "description": "Latitude in decimal degrees (optional if beach_name is given)"},
                                 "longitude": {"type": "number", "description": "Longitude in decimal degrees (optional if beach_name is given)"}
                             },
-                            "required": []
+                            "anyOf": [
+                                {"required": ["beach_name"]},
+                                {"required": ["latitude", "longitude"]}
+                            ]
                         }
                     }
                 ]
@@ -992,11 +998,13 @@ if __name__ == "__main__":
                     else:
                         result = f"Unknown tool: {name}"
 
+                    is_error = isinstance(result, dict) and "error" in result
                     print(json.dumps({
                         "jsonrpc": "2.0",
                         "id": msg_id,
                         "result": {
-                            "content": [{"type": "text", "text": str(result)}]
+                            "content": [{"type": "text", "text": str(result)}],
+                            "isError": is_error
                         }
                     }))
                 except Exception as e:
